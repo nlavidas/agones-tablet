@@ -1,0 +1,245 @@
+{
+  "timezone": "Europe/Athens",
+  "feed": "https://www.gazzetta.gr/gztfeeds/tvschedule-v2",
+  "minutes": {
+    "football": 115,
+    "basketball": 120
+  },
+  "start_wait_minutes": 30,
+  "filler_overrun_minutes": 10,
+  "channels": [
+    {
+      "pattern": "^Magenta Sport League ([1-4])$",
+      "base": 300,
+      "name": "Magenta Sport {n} League"
+    },
+    {
+      "pattern": "^Magenta Sport (?:4K|Highlights)$",
+      "number": 314,
+      "name": "Magenta Sport 4K"
+    },
+    {
+      "pattern": "^Magenta Sport ([1-9])$",
+      "base": 304,
+      "name": "Magenta Sport {n}"
+    },
+    {
+      "pattern": "^Novasports Start$",
+      "number": 315,
+      "name": "Novasports Start"
+    },
+    {
+      "pattern": "^Novasports Prime$",
+      "number": 316,
+      "name": "Novasports Prime"
+    },
+    {
+      "pattern": "^Novasports (?:PL|Premier League)$",
+      "number": 317,
+      "name": "Novasports Premier League"
+    },
+    {
+      "pattern": "^Novasports (?:([12]) League|League ([12]))$",
+      "base": 317,
+      "name": "Novasports League {n}"
+    },
+    {
+      "pattern": "^Novasports Extra ([1-3])$",
+      "base": 325,
+      "name": "Novasports Extra {n}"
+    },
+    {
+      "pattern": "^Novasports ([1-6])$",
+      "base": 319,
+      "name": "Novasports {n}"
+    },
+    {
+      "pattern": "^Novasports",
+      "number": null,
+      "name": "Novasports"
+    },
+    {
+      "pattern": "^Magenta",
+      "number": null,
+      "name": "Magenta"
+    }
+  ],
+  "greek_clubs": [
+    "ΟΛΥΜΠΙΑΚΟΣ",
+    "ΠΑΝΑΘΗΝΑΙΚΟΣ",
+    "ΑΕΚ",
+    "ΠΑΟΚ",
+    "ΑΡΗΣ",
+    "ΟΦΗ",
+    "ΑΤΡΟΜΗΤΟΣ",
+    "ΑΣΤΕΡΑΣ",
+    "ΒΟΛΟΣ",
+    "ΛΕΒΑΔΕΙΑΚΟΣ",
+    "ΠΑΝΑΙΤΩΛΙΚΟΣ",
+    "ΠΑΝΣΕΡΡΑΙΚΟΣ",
+    "ΚΗΦΙΣΙΑ",
+    "ΑΕΛ",
+    "ΛΑΜΙΑ",
+    "ΠΑΣ ΓΙΑΝΝΙΝΑ",
+    "ΗΡΑΚΛΗΣ",
+    "ΠΑΝΙΩΝΙΟΣ",
+    "ATHENS KALLITHEA",
+    "ΚΑΛΛΙΘΕΑ",
+    "ΛΑΡΙΣΑ"
+  ],
+  "not_greek": [
+    "ΛΑΡΝΑΚ",
+    "ΛΕΜΕΣ",
+    "ΛΕΥΚΩΣ",
+    "ΠΑΦ",
+    "ΤΡΙΠΟΛΗ ΛΙΒΥ"
+  ],
+  "exclude_league": [
+    "Γυναικ",
+    "Women",
+    "WSL",
+    "Youth",
+    "U-",
+    "U1",
+    "U2",
+    "Κ1",
+    "Κ2",
+    "Νέων",
+    "Εφήβων",
+    "Παίδων"
+  ],
+  "national_football_leagues": [
+    "Μουντιάλ",
+    "Παγκόσμιο Κύπελλο",
+    "World Cup",
+    "Nations League",
+    "EURO",
+    "Euro 20",
+    "Προκριματικά Μουντιάλ",
+    "Προκριματικά EURO",
+    "Προκριματικά Euro"
+  ],
+  "categories": [
+    {
+      "id": 1,
+      "label": "Εθνική Ελλάδας ποδόσφαιρο"
+    },
+    {
+      "id": 2,
+      "label": "Εθνικές ομάδες ποδόσφαιρο"
+    },
+    {
+      "id": 3,
+      "label": "Super League"
+    },
+    {
+      "id": 4,
+      "label": "Ελληνικές ομάδες στην Ευρώπη"
+    },
+    {
+      "id": 5,
+      "label": "Κύπελλο Ελλάδας"
+    },
+    {
+      "id": 6,
+      "label": "Ευρωπαϊκά κύπελλα"
+    },
+    {
+      "id": 7,
+      "label": "Παναθηναϊκός μπάσκετ Ευρώπη"
+    },
+    {
+      "id": 8,
+      "label": "Παναθηναϊκός μπάσκετ ντέρμπι"
+    },
+    {
+      "id": 9,
+      "label": "Εθνική Ελλάδας μπάσκετ"
+    },
+    {
+      "id": 10,
+      "label": "Ολυμπιακός μπάσκετ Ευρώπη"
+    },
+    {
+      "id": 11,
+      "label": "Super League 2"
+    },
+    {
+      "id": 12,
+      "label": "Premier League"
+    },
+    {
+      "id": 13,
+      "label": "La Liga και Κύπελλο Ισπανίας"
+    }
+  ],
+  "club_order": [
+    "ΠΑΝΑΘΗΝΑΙΚΟΣ",
+    "ΟΛΥΜΠΙΑΚΟΣ",
+    "ΑΕΚ",
+    "ΠΑΟΚ",
+    "ΑΡΗΣ"
+  ],
+  "other_channels": [
+    {
+      "pattern": "^(?:ERT|ΕΡΤ)\\s*1$",
+      "number": 103,
+      "name": "ΕΡΤ1"
+    },
+    {
+      "pattern": "^(?:ERT|ΕΡΤ)\\s*2",
+      "number": 104,
+      "name": "ΕΡΤ2"
+    },
+    {
+      "pattern": "^(?:ERT|ΕΡΤ)\\s*3$",
+      "number": 105,
+      "name": "ΕΡΤ3"
+    },
+    {
+      "pattern": "^(?:ERT|ΕΡΤ)\\s*NEWS$",
+      "number": 102,
+      "name": "ΕΡΤ News"
+    },
+    {
+      "pattern": "^(?:ANT|ΑΝΤ)\\s*1$",
+      "number": 106,
+      "name": "ANT1"
+    },
+    {
+      "pattern": "^MEGA$",
+      "number": 107,
+      "name": "MEGA"
+    },
+    {
+      "pattern": "^STAR$",
+      "number": 108,
+      "name": "STAR"
+    },
+    {
+      "pattern": "^(?:SKAI|ΣΚΑΪ|ΣΚΑΙ)$",
+      "number": 109,
+      "name": "ΣΚΑΪ"
+    },
+    {
+      "pattern": "^ALPHA$",
+      "number": null,
+      "name": "ALPHA"
+    },
+    {
+      "pattern": "^OPEN",
+      "number": 111,
+      "name": "OPEN"
+    },
+    {
+      "pattern": "^ACTION\\s*24$",
+      "number": 113,
+      "name": "Action 24"
+    }
+  ],
+  "any_channel_categories": [
+    1,
+    2,
+    9
+  ]
+}
