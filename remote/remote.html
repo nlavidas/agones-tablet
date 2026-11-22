@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="author" content="Lavidas">
+<title>Τηλεκοντρόλ</title>
+<style>
+html, body { margin: 0; padding: 0; height: 100%; background: #ffffff; color: #1a1a1a; overflow: hidden; }
+body { font-family: "GFS Neohellenic", Georgia, "Times New Roman", serif; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: rgba(0,0,0,0); }
+#tabs { position: absolute; top: 0; left: 0; right: 0; height: 74px; border-bottom: 3px solid #0E8388; }
+#tabs div { float: left; width: 50%; height: 74px; line-height: 74px; text-align: center; font-size: 34px; font-weight: 700; color: #555555; }
+#tabs div.on { color: #0E8388; text-decoration: underline; }
+#main { position: absolute; top: 77px; bottom: 92px; left: 0; right: 0; overflow: hidden; }
+#bar { position: absolute; bottom: 0; left: 0; right: 0; height: 89px; border-top: 3px solid #0E8388; }
+#bar div { float: left; width: 33.33%; height: 89px; line-height: 89px; text-align: center; font-size: 34px; font-weight: 700; color: #0E8388; }
+.row { box-sizing: border-box; border-bottom: 2px solid #0E8388; padding: 0 18px; overflow: hidden; white-space: nowrap; }
+.row .n { float: left; font-size: 56px; font-weight: 700; color: #0E8388; width: 130px; }
+.row .t { font-size: 30px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
+.row .s { font-size: 21px; color: #555555; overflow: hidden; text-overflow: ellipsis; }
+.row.live .s { color: #0E8388; font-weight: 700; }
+.grid { float: left; width: 33.33%; text-align: center; border-bottom: 2px solid #0E8388; overflow: hidden; }
+.grid .n { font-size: 54px; font-weight: 700; color: #0E8388; display: block; }
+.grid .t { font-size: 24px; font-weight: 700; display: block; }
+.press { background: #d7eeee; }
+.more { text-align: center; font-size: 30px; font-weight: 700; color: #0E8388; }
+#msg { display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #ffffff; text-align: center; z-index: 9; }
+#msg div { position: absolute; top: 30%; left: 0; right: 0; font-size: 44px; font-weight: 700; }
+#msg b { display: block; font-size: 120px; color: #0E8388; }
+.empty { font-size: 30px; padding: 30px 20px; }
+@media (max-height: 620px) {
+  .row .n { font-size: 48px; width: 115px; }
+  .row .t { font-size: 27px; }
+  .row .s { font-size: 19px; }
+}
+</style>
+</head>
+<body>
+<div id="tabs"><div id="tab-games" data-act="tab:games">Αγώνες</div><div id="tab-ch" data-act="tab:ch">Κανάλια</div></div>
+<div id="main"></div>
+<div id="bar"><div data-act="key:vol_down">Φωνή −</div><div data-act="key:mute">Σίγαση</div><div data-act="key:vol_up">Φωνή +</div></div>
+<div id="msg"><div id="msgtext"></div></div>
+<script>
+(function () {
+  var state = null, tab = "games", page = 0, busy = false;
+  var main = document.getElementById("main");
+
+  function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+  function mins(s) { var p = s.split(":"); var m = parseInt(p[0], 10) * 60 + parseInt(p[1], 10); return m < 300 ? m + 1440 : m; }
+  function nowMins() { var d = new Date(); var m = d.getHours() * 60 + d.getMinutes(); return m < 300 ? m + 1440 : m; }
+
+  function xhr(method, url, cb) {
+    var r = new XMLHttpRequest();
+    r.open(method, url, true);
+    r.onreadystatechange = function () {
+      if (r.readyState !== 4) { return; }
+      var data = null;
+      try { data = JSON.parse(r.responseText); } catch (e) { data = null; }
+      cb(r.status === 200 ? data : null);
+    };
+    r.send(null);
+  }
+
+  function games() {
+    if (!state || !state.today || !state.today.games) { return []; }
+    var now = nowMins(), out = [], i, g, s, e, nums;
+    var planned = {};
+    for (i = 0; i < (state.today.plan || []).length; i++) { planned[state.today.plan[i].match] = 1; }
+    for (i = 0; i < state.today.games.length; i++) {
+      g = state.today.games[i];
+      s = mins(g.start); e = mins(g.end); if (e < s) { e += 1440; }
+      if (now >= e) { continue; }
+      nums = [];
+      for (var k = 0; k < g.channels.length; k++) { if (g.channels[k].number) { nums.push(g.channels[k].number); } }
+      if (!nums.length) { continue; }
+      out.push({ number: nums[0], title: g.match, sub: g.start + "  " + g.competition, live: now >= s, auto: planned[g.match] === 1 });
+    }
+    return out;
+  }
+
+  function show(text, big, ms) {
+    document.getElementById("msgtext").innerHTML = esc(text) + (big ? "<b>" + esc(big) + "</b>" : "");
+    document.getElementById("msg").style.display = "block";
+    setTimeout(function () { document.getElementById("msg").style.display = "none"; busy = false; }, ms || 2500);
+  }
+
+  function render() {
+    document.getElementById("tab-games").className = tab === "games" ? "on" : "";
+    document.getElementById("tab-ch").className = tab === "ch" ? "on" : "";
+    var h = main.offsetHeight, html = "", i, list, per, start, rowH;
+    if (tab === "games") {
+      list = games();
+      rowH = 90;
+      per = Math.max(1, Math.floor(h / rowH));
+      if (list.length > per) { per = per - 1; }
+      if (page * per >= list.length) { page = 0; }
+      start = page * per;
+      var shown = Math.min(list.length - start, per) + (list.length > per ? 1 : 0);
+      rowH = Math.min(150, Math.floor(h / Math.max(shown, 1)));
+      if (!list.length) { html = '<div class="empty">' + (state ? "Σήμερα δεν έχει άλλους αγώνες. Πάτα «Κανάλια» για τα κανάλια." : "Φορτώνει…") + "</div>"; }
+      for (i = start; i < Math.min(list.length, start + per); i++) {
+        html += '<div class="row' + (list[i].live ? " live" : "") + '" style="height:' + rowH + 'px;padding-top:' + Math.max(0, Math.floor((rowH - 80) / 2)) + 'px" data-act="ch:' + list[i].number + '">' +
+          '<span class="n">' + list[i].number + '</span><div class="t">' + esc(list[i].title) + '</div><div class="s">' +
+          (list[i].live ? "Παίζει τώρα · " : "") + esc(list[i].sub) + "</div></div>";
+      }
+      if (list.length > per) {
+        html += '<div class="row more" style="height:' + rowH + 'px;line-height:' + (rowH - 2) + 'px" data-act="page">Κι άλλοι αγώνες</div>';
+      }
+    } else {
+      list = (state && state.favourites) || [];
+      per = h > 520 ? 12 : 9;
+      if (list.length > per) { per = per - 1; }
+      if (page * per >= list.length) { page = 0; }
+      start = page * per;
+      var cells = Math.min(list.length - start, per) + (list.length > per ? 1 : 0);
+      var rows = Math.ceil(cells / 3) || 1;
+      rowH = Math.floor(h / Math.max(rows, 3));
+      for (i = start; i < Math.min(list.length, start + per); i++) {
+        html += '<div class="grid" style="height:' + (rowH - 2) + 'px;padding-top:' + Math.max(0, Math.floor((rowH - 92) / 2)) + 'px;box-sizing:border-box" data-act="ch:' + list[i].number + '">' +
+          '<span class="n">' + list[i].number + '</span><span class="t">' + esc(list[i].name) + "</span></div>";
+      }
+      if (list.length > per) {
+        html += '<div class="grid more" style="height:' + (rowH - 2) + 'px;line-height:' + (rowH - 2) + 'px" data-act="page">Κι άλλα</div>';
+      }
+    }
+    main.innerHTML = html;
+  }
+
+  function act(a) {
+    if (busy) { return; }
+    var p = a.split(":");
+    if (p[0] === "tab") { tab = p[1]; page = 0; render(); return; }
+    if (p[0] === "page") { page++; render(); return; }
+    if (p[0] === "ch") {
+      busy = true;
+      show("Αλλάζει στο", p[1], 6000);
+      xhr("POST", "/api/ch/" + p[1], function (r) {
+        if (r && r.ok) { show("Τώρα στο", p[1], 2500); }
+        else { show("Δεν έγινε η αλλαγή. Πάτα ξανά σε λίγο.", "", 3500); }
+      });
+      return;
+    }
+    if (p[0] === "key") {
+      busy = true;
+      xhr("POST", "/api/key/" + p[1], function (r) {
+        var names = { vol_up: "Φωνή +", vol_down: "Φωνή −", mute: "Σίγαση" };
+        if (r && r.ok) { show(names[p[1]] || "", "", 900); } else { show("Δεν έγινε. Πάτα ξανά σε λίγο.", "", 2500); }
+      });
+    }
+  }
+
+  function target(el) {
+    while (el && el !== document.body) { if (el.getAttribute && el.getAttribute("data-act")) { return el; } el = el.parentNode; }
+    return null;
+  }
+
+  var startEl = null, sx = 0, sy = 0, touched = 0;
+  document.addEventListener("touchstart", function (e) {
+    var t = e.touches[0]; startEl = target(e.target); sx = t.clientX; sy = t.clientY;
+    if (startEl) { startEl.className += " press"; }
+  }, false);
+  document.addEventListener("touchend", function (e) {
+    var t = e.changedTouches[0], el = startEl; startEl = null; touched = new Date().getTime();
+    if (!el) { return; }
+    el.className = el.className.replace(/ press/g, "");
+    e.preventDefault();
+    if (Math.abs(t.clientX - sx) < 70 && Math.abs(t.clientY - sy) < 70) { act(el.getAttribute("data-act")); }
+  }, false);
+  document.addEventListener("click", function (e) {
+    if (new Date().getTime() - touched < 800) { return; }
+    var el = target(e.target); if (el) { act(el.getAttribute("data-act")); }
+  }, false);
+  document.addEventListener("contextmenu", function (e) { e.preventDefault(); }, false);
+
+  function load() { xhr("GET", "/api/state", function (r) { if (r) { state = r; } render(); }); }
+  load();
+  setInterval(load, 60000);
+  setTimeout(function () { location.reload(); }, 6 * 3600 * 1000);
+})();
+</script>
+</body>
+</html>

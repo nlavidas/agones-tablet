@@ -1,0 +1,21 @@
+{
+  "today_url": "https://nlavidas.github.io/agones-tablet/today.json",
+  "port": 8080,
+  "broadlink_host": "",
+  "digit_pause_seconds": 0.45,
+  "send_ok_after_digits": true,
+  "ignore_repeat_seconds": 3,
+  "auto_plan": true,
+  "favourites": [
+    {"name": "ΕΡΤ1", "number": 103},
+    {"name": "ANT1", "number": 106},
+    {"name": "MEGA", "number": 107},
+    {"name": "STAR", "number": 108},
+    {"name": "ΣΚΑΪ", "number": 109},
+    {"name": "OPEN", "number": 111},
+    {"name": "Magenta League 1", "number": 301},
+    {"name": "Novasports Prime", "number": 316},
+    {"name": "Novasports League 1", "number": 318}
+  ],
+  "keys_to_learn": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "ok", "vol_up", "vol_down", "mute"]
+}
