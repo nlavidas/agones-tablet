@@ -208,7 +208,7 @@
     },
     {
       "pattern": "^MEGA$",
-      "number": 107,
+      "number": 112,
       "name": "MEGA"
     },
     {
@@ -223,7 +223,7 @@
     },
     {
       "pattern": "^ALPHA$",
-      "number": null,
+      "number": 107,
       "name": "ALPHA"
     },
     {
