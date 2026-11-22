@@ -23,6 +23,8 @@ if len(sys.argv) > 2 and sys.argv[1] == "demo":
     CFG["today_url"] = sys.argv[2]
 CODES_FILE = ROOT / "codes.json"
 PAGE = (ROOT / "remote.html").read_text(encoding="utf-8")
+if sys.stdout is None:
+    sys.stdout = sys.stderr = open(ROOT / "remote.log", "a", encoding="utf-8", buffering=1)
 LABELS = {"ok": "OK", "vol_up": "Φωνή +", "vol_down": "Φωνή −", "mute": "Σίγαση"}
 
 
@@ -35,17 +37,26 @@ class FakeDevice:
         print("demo send", packet[:6])
 
 
-def find_device():
+def find_device(keep_trying=False):
     import broadlink
-    if CFG.get("broadlink_host"):
-        dev = broadlink.hello(CFG["broadlink_host"])
-    else:
-        found = [d for d in broadlink.discover(timeout=6) if hasattr(d, "send_data")]
-        if not found:
-            sys.exit("Δεν βρέθηκε BroadLink στο δίκτυο. Το tablet, ο υπολογιστής και το BroadLink "
-                     "πρέπει να είναι στο ίδιο Wi-Fi.")
-        dev = found[0]
-    dev.auth()
+    while True:
+        try:
+            if CFG.get("broadlink_host"):
+                dev = broadlink.hello(CFG["broadlink_host"])
+            else:
+                found = [d for d in broadlink.discover(timeout=6) if hasattr(d, "send_data")]
+                if not found:
+                    raise LookupError("no device")
+                dev = found[0]
+            dev.auth()
+            break
+        except Exception as e:
+            msg = ("Δεν βρέθηκε BroadLink στο δίκτυο. Το tablet, ο υπολογιστής και το BroadLink "
+                   f"πρέπει να είναι στο ίδιο Wi-Fi. ({e.__class__.__name__})")
+            if not keep_trying:
+                sys.exit(msg)
+            print(f"{dt.datetime.now():%H:%M:%S} {msg}")
+            time.sleep(30)
     print(f"BroadLink: {dev.host[0]} ({dev.model or dev.type})")
     return dev
 
@@ -209,7 +220,7 @@ def lan_ip():
 
 
 def serve(demo=False):
-    device = FakeDevice() if demo else find_device()
+    device = FakeDevice() if demo else find_device(keep_trying=True)
     remote = Remote(device)
     if demo and not remote.codes:
         remote.codes = {k: k.encode() for k in CFG["keys_to_learn"]}

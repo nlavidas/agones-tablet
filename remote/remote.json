@@ -7,15 +7,57 @@
   "ignore_repeat_seconds": 3,
   "auto_plan": true,
   "favourites": [
-    {"name": "ΕΡΤ1", "number": 103},
-    {"name": "ANT1", "number": 106},
-    {"name": "MEGA", "number": 107},
-    {"name": "STAR", "number": 108},
-    {"name": "ΣΚΑΪ", "number": 109},
-    {"name": "OPEN", "number": 111},
-    {"name": "Magenta League 1", "number": 301},
-    {"name": "Novasports Prime", "number": 316},
-    {"name": "Novasports League 1", "number": 318}
+    {
+      "name": "Magenta Sport 1 League",
+      "number": 301
+    },
+    {
+      "name": "Magenta Sport 2 League",
+      "number": 302
+    },
+    {
+      "name": "Magenta Sport 3 League",
+      "number": 303
+    },
+    {
+      "name": "Magenta Sport 4 League",
+      "number": 304
+    },
+    {
+      "name": "Magenta Sport 1",
+      "number": 305
+    },
+    {
+      "name": "Novasports Start",
+      "number": 315
+    },
+    {
+      "name": "Novasports Prime",
+      "number": 316
+    },
+    {
+      "name": "Novasports Premier League",
+      "number": 317
+    },
+    {
+      "name": "Novasports League 1",
+      "number": 318
+    }
   ],
-  "keys_to_learn": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "ok", "vol_up", "vol_down", "mute"]
+  "keys_to_learn": [
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "ok",
+    "vol_up",
+    "vol_down",
+    "mute"
+  ]
 }
