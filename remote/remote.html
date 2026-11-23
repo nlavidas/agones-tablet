@@ -42,7 +42,7 @@ body { font-family: "GFS Neohellenic", Georgia, "Times New Roman", serif; -webki
 <div id="msg"><div id="msgtext"></div></div>
 <script>
 (function () {
-  var state = null, tab = "games", page = 0, busy = false;
+  var state = null, tab = "games", page = 0, busy = false, failed = false;
   var main = document.getElementById("main");
 
   function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
@@ -78,10 +78,12 @@ body { font-family: "GFS Neohellenic", Georgia, "Times New Roman", serif; -webki
     return out;
   }
 
+  var msgTimer = null;
   function show(text, big, ms) {
     document.getElementById("msgtext").innerHTML = esc(text) + (big ? "<b>" + esc(big) + "</b>" : "");
     document.getElementById("msg").style.display = "block";
-    setTimeout(function () { document.getElementById("msg").style.display = "none"; busy = false; }, ms || 2500);
+    if (msgTimer) { clearTimeout(msgTimer); }
+    msgTimer = setTimeout(function () { document.getElementById("msg").style.display = "none"; busy = false; msgTimer = null; }, ms || 2500);
   }
 
   function render() {
@@ -97,7 +99,7 @@ body { font-family: "GFS Neohellenic", Georgia, "Times New Roman", serif; -webki
       start = page * per;
       var shown = Math.min(list.length - start, per) + (list.length > per ? 1 : 0);
       rowH = Math.min(150, Math.floor(h / Math.max(shown, 1)));
-      if (!list.length) { html = '<div class="empty">' + (state ? "Σήμερα δεν έχει άλλους αγώνες. Πάτα «Κανάλια» για τα κανάλια." : "Φορτώνει…") + "</div>"; }
+      if (!list.length) { html = '<div class="empty">' + (state ? "Σήμερα δεν έχει άλλους αγώνες. Πάτα «Κανάλια» για τα κανάλια." : (failed ? "Ο υπολογιστής δεν απαντά. Έλεγξε ότι είναι ανοιχτός." : "Φορτώνει…")) + "</div>"; }
       for (i = start; i < Math.min(list.length, start + per); i++) {
         html += '<div class="row' + (list[i].live ? " live" : "") + '" style="height:' + rowH + 'px;padding-top:' + Math.max(0, Math.floor((rowH - 80) / 2)) + 'px" data-act="ch:' + list[i].number + '">' +
           '<span class="n">' + list[i].number + '</span><div class="t">' + esc(list[i].title) + '</div><div class="s">' +
@@ -175,6 +177,7 @@ body { font-family: "GFS Neohellenic", Georgia, "Times New Roman", serif; -webki
   var first = true;
   function load() {
     xhr("GET", "/api/state", function (r) {
+      failed = !r;
       if (r) { state = r; if (first) { first = false; if (!games().length) { tab = "ch"; } } }
       render();
     });

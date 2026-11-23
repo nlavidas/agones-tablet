@@ -26,7 +26,12 @@ if len(sys.argv) > 2 and sys.argv[1] == "demo":
 CODES_FILE = ROOT / "codes.json"
 PAGE = (ROOT / "remote.html").read_text(encoding="utf-8")
 if sys.stdout is None:
-    sys.stdout = sys.stderr = open(ROOT / "remote.log", "a", encoding="utf-8", buffering=1)
+    _log = ROOT / "remote.log"
+    if _log.exists() and _log.stat().st_size > 1_000_000:
+        _log.replace(ROOT / "remote.old.log")
+    sys.stdout = sys.stderr = open(_log, "a", encoding="utf-8", buffering=1)
+CACHE_TODAY = ROOT / "today.cache.json"
+CACHE_BOARD = ROOT / "board.cache.html"
 LABELS = {"ok": "OK", "vol_up": "Φωνή +", "vol_down": "Φωνή −", "mute": "Σίγαση"}
 
 
@@ -118,6 +123,8 @@ class Remote:
     def _key(self, key):
         if key not in self.codes:
             raise KeyError(key)
+        if self.dev is None:
+            self.dev = find_device(keep_trying=False, quit_on_fail=False)
         try:
             self.dev.send_data(self.codes[key])
         except Exception as e:
@@ -153,6 +160,8 @@ class Board:
     """The GitHub match board, fetched here so that old tablets can read it over plain http."""
     def __init__(self):
         self.html, self.fetched = None, 0.0
+        if CACHE_BOARD.exists():
+            self.html = CACHE_BOARD.read_bytes()
 
     def get(self):
         url = CFG["today_url"].rsplit("/", 1)[0] + "/"
@@ -161,6 +170,7 @@ class Board:
                 with urllib.request.urlopen(url, timeout=20) as r:
                     self.html = r.read()
                 self.fetched = time.time()
+                CACHE_BOARD.write_bytes(self.html)
             except Exception as e:
                 print("board:", e.__class__.__name__)
         return self.html
@@ -169,6 +179,11 @@ class Board:
 class Today:
     def __init__(self):
         self.data, self.fetched = None, 0.0
+        if CACHE_TODAY.exists():
+            try:
+                self.data = json.loads(CACHE_TODAY.read_text(encoding="utf-8"))
+            except ValueError:
+                self.data = None
 
     def get(self):
         if self.data is None or time.time() - self.fetched > 600:
@@ -177,6 +192,7 @@ class Today:
                 if url.startswith("http"):
                     with urllib.request.urlopen(url, timeout=20) as r:
                         self.data = json.loads(r.read().decode("utf-8"))
+                    CACHE_TODAY.write_text(json.dumps(self.data, ensure_ascii=False), encoding="utf-8")
                 else:
                     self.data = json.loads(Path(url).read_text(encoding="utf-8"))
                 self.fetched = time.time()
@@ -193,13 +209,140 @@ def for_today(data):
     return data
 
 
-def auto_loop(remote, today):
+SECRET_FILE = ROOT.parents[1] / "secret.txt"
+OVR_FILE = ROOT / "overrides.json"
+
+
+def control_topic():
+    if CFG.get("control_topic"):
+        return CFG["control_topic"]
+    return SECRET_FILE.read_text(encoding="utf-8").strip() if SECRET_FILE.exists() else ""
+
+
+def game_key(g):
+    return f'{g["start"]}|{g["match"]}'
+
+
+def hm(text):
+    h, m = map(int, text.split(":"))
+    return h * 60 + m
+
+
+class Control:
+    """Per-game ON/OFF choices, sent from Nikos's phone through a private ntfy topic."""
+
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.topic = control_topic()
+        self.base = CFG.get("ntfy", "https://ntfy.sh").rstrip("/")
+        self.since = "12h"
+        self.ovr = {}
+        if OVR_FILE.exists():
+            try:
+                self.ovr = json.loads(OVR_FILE.read_text(encoding="utf-8"))
+            except ValueError:
+                self.ovr = {}
+        self.published = 0.0
+        self.ip = None
+
+    def is_on(self, date, key, default):
+        return self.ovr.get(date, {}).get(key, default)
+
+    def _save(self):
+        keep = (dt.date.today() - dt.timedelta(days=1)).isoformat()
+        self.ovr = {d: v for d, v in self.ovr.items() if d >= keep and v}
+        OVR_FILE.write_text(json.dumps(self.ovr, ensure_ascii=False, indent=1), encoding="utf-8")
+
+    def apply(self, cmd):
+        date = str(cmd.get("date", ""))
+        if not date:
+            return False
+        if cmd.get("reset"):
+            self.ovr.pop(date, None)
+        elif "key" in cmd and "on" in cmd:
+            self.ovr.setdefault(date, {})[str(cmd["key"])] = bool(cmd["on"])
+        else:
+            return False
+        return True
+
+    def poll(self):
+        if not self.topic:
+            return
+        url = f"{self.base}/{self.topic}/json?poll=1&since={self.since}"
+        changed = False
+        with urllib.request.urlopen(url, timeout=20) as r:
+            for line in r.read().decode("utf-8").splitlines():
+                try:
+                    ev = json.loads(line)
+                except ValueError:
+                    continue
+                if ev.get("event") != "message":
+                    continue
+                self.since = ev.get("id", self.since)
+                try:
+                    cmd = json.loads(ev.get("message", ""))
+                except ValueError:
+                    continue
+                with self.lock:
+                    changed = self.apply(cmd) or changed
+        if changed:
+            with self.lock:
+                self._save()
+            print(f"{dt.datetime.now():%H:%M:%S} νέες επιλογές από το κινητό")
+        if changed or time.time() - self.published > 6 * 3600 or lan_ip() != self.ip:
+            self.publish()
+
+    def publish(self):
+        if not self.topic:
+            return
+        ip = lan_ip()
+        body = json.dumps({"u": dt.datetime.now().isoformat(timespec="minutes"), "o": self.ovr,
+                           "asus": f"http://{ip}:{CFG['port']}/"}, ensure_ascii=False).encode("utf-8")
+        req = urllib.request.Request(f"{self.base}/{self.topic}-state", data=body, method="POST")
+        with urllib.request.urlopen(req, timeout=20):
+            pass
+        self.published = time.time()
+        self.ip = ip
+
+
+def effective_plan(day, control):
+    """The day's switches: the default plan, changed by the ON/OFF choices; a switch happens
+    at the game's start, or when the previous chosen game ends if that is later."""
+    date = day.get("date", "")
+    planned = {p["match"] for p in day.get("plan", [])}
+    chosen = []
+    for g in day.get("games", []):
+        nums = [c["number"] for c in g.get("channels", []) if c.get("number")]
+        if nums and control.is_on(date, game_key(g), g["match"] in planned):
+            chosen.append((hm(g["start"]), g.get("priority", 99), hm(g["end"]), nums[0], g["match"]))
+    steps, prev_end = [], None
+    for start, _prio, end, number, match in sorted(chosen):
+        if end < start:
+            end += 1440
+        at = start if prev_end is None else max(start, prev_end)
+        if at >= end or at >= 1440:
+            continue
+        steps.append({"at": f"{at // 60:02d}:{at % 60:02d}", "number": number, "match": match})
+        prev_end = end
+    return steps
+
+
+def control_loop(control):
+    while True:
+        try:
+            control.poll()
+        except Exception as e:
+            print("κινητό:", e.__class__.__name__)
+        time.sleep(30)
+
+
+def auto_loop(remote, today, control):
     done = set()
     while True:
         data = for_today(today.get())
         now = dt.datetime.now()
         if remote.auto and data.get("date") == now.date().isoformat():
-            for step in data.get("plan", []):
+            for step in effective_plan(data, control):
                 key = (data["date"], step["at"], step["number"])
                 hh, mm = map(int, step["at"].split(":"))
                 at = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
@@ -214,7 +357,7 @@ def auto_loop(remote, today):
         time.sleep(20)
 
 
-def make_handler(remote, today, board):
+def make_handler(remote, today, board, control):
     class H(BaseHTTPRequestHandler):
         def log_message(self, *a):
             pass
@@ -238,7 +381,7 @@ def make_handler(remote, today, board):
                 return self._send(503, "Ο πίνακας δεν είναι διαθέσιμος αυτή τη στιγμή.", "text/plain; charset=utf-8")
             if self.path.startswith("/api/state"):
                 return self._send(200, json.dumps({
-                    "today": for_today(today.get()), "favourites": CFG["favourites"],
+                    "today": dict(for_today(today.get()), plan=effective_plan(for_today(today.get()), control)), "favourites": CFG["favourites"],
                     "auto": remote.auto, "current": remote.current,
                     "keys": sorted(remote.codes)}, ensure_ascii=False))
             self._send(404, "{}")
@@ -275,13 +418,22 @@ def lan_ip():
 
 
 def serve(demo=False):
-    device = FakeDevice() if demo else find_device(keep_trying=True)
-    remote = Remote(device)
+    remote = Remote(FakeDevice() if demo else None)
+
+    def connect():
+        dev = find_device(keep_trying=True)
+        with remote.lock:
+            if remote.dev is None:
+                remote.dev = dev
+    if not demo:
+        threading.Thread(target=connect, daemon=True).start()
     if demo and not remote.codes:
         remote.codes = {k: k.encode() for k in CFG["keys_to_learn"]}
     today = Today()
-    threading.Thread(target=auto_loop, args=(remote, today), daemon=True).start()
-    srv = ThreadingHTTPServer(("0.0.0.0", CFG["port"]), make_handler(remote, today, Board()))
+    control = Control()
+    threading.Thread(target=control_loop, args=(control,), daemon=True).start()
+    threading.Thread(target=auto_loop, args=(remote, today, control), daemon=True).start()
+    srv = ThreadingHTTPServer(("0.0.0.0", CFG["port"]), make_handler(remote, today, Board(), control))
     print(f"\nΣτο tablet άνοιξε:  http://{lan_ip()}:{CFG['port']}/\n")
     srv.serve_forever()
 
