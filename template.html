@@ -27,6 +27,7 @@ tr.other .match { font-size: 22px; font-weight: 400; }
 .switch { font-size: 18px; font-weight: 700; color: #0E8388; }
 tr.past { display: none; }
 tr.now td.time { color: #0E8388; }
+div.day { display: none; }
 p.empty, p.done { font-size: 30px; line-height: 1.3; margin: 30px 0; }
 p.done { display: none; }
 p.foot { font-size: 16px; color: #777777; margin-top: 10px; }
@@ -46,20 +47,25 @@ p.foot { font-size: 16px; color: #777777; margin-top: 10px; }
 </style>
 </head>
 <body>
-<h1>{{DATE}}</h1>
-{{PLAN}}
-{{BODY}}
-<p class="done" id="done">Οι σημερινοί αγώνες τελείωσαν.</p>
+{{DAYS}}
+<p class="empty" id="stale" style="display:none">Το πρόγραμμα δεν έχει ενημερωθεί. Η σελίδα θα ενημερωθεί μόνη της.</p>
 <p class="foot">{{FOOTER}}</p>
 <script>
 (function () {
   function mins(s) { var p = s.split(":"); var m = parseInt(p[0], 10) * 60 + parseInt(p[1], 10); return m < 300 ? m + 1440 : m; }
+  function pad(n) { return n < 10 ? "0" + n : "" + n; }
   var d = new Date();
   var now = d.getHours() * 60 + d.getMinutes();
+  var key = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  var divs = document.getElementsByTagName("div"), day = null, i;
+  for (i = 0; i < divs.length; i++) {
+    if (divs[i].className === "day" && divs[i].getAttribute("data-date") === key) { day = divs[i]; }
+  }
+  if (!day) { var st = document.getElementById("stale"); if (st && divs.length) { st.style.display = "block"; } return; }
+  day.style.display = "block";
   if (now < 300) { now = now + 1440; }
-  var rows = document.getElementsByTagName("tr");
-  var shown = 0, total = 0;
-  for (var i = 0; i < rows.length; i++) {
+  var rows = day.getElementsByTagName("tr"), shown = 0, total = 0;
+  for (i = 0; i < rows.length; i++) {
     var t = rows[i].getAttribute("data-t");
     if (!t) { continue; }
     total++;
@@ -68,7 +74,10 @@ p.foot { font-size: 16px; color: #777777; margin-top: 10px; }
     if (now >= e) { rows[i].className += " past"; }
     else { shown++; if (now >= s) { rows[i].className += " now"; } }
   }
-  if (total > 0 && shown === 0) { document.getElementById("done").style.display = "block"; }
+  if (total > 0 && shown === 0) {
+    var ps = day.getElementsByTagName("p");
+    for (i = 0; i < ps.length; i++) { if (ps[i].className === "done") { ps[i].style.display = "block"; } }
+  }
 })();
 </script>
 </body>

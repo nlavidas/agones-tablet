@@ -200,14 +200,14 @@ def esc(s):
     return html.escape(s or "", quote=True)
 
 
-def render(games, steps, day, updated, ok):
+def render_day(games, steps, day):
     date_label = f"{DAYS[day.weekday()]} {day.day} {MONTHS_GEN[day.month - 1]}"
     planned = {id(s["game"]): s["at"] for s in steps}
-    body = []
-    if not ok:
-        body.append('<p class="empty">Το σημερινό πρόγραμμα δεν είναι διαθέσιμο αυτή τη στιγμή. '
-                    'Η σελίδα θα ενημερωθεί μόνη της.</p>')
-    elif not games:
+    body = [f'<div class="day" data-date="{day.isoformat()}">', f"<h1>{esc(date_label)}</h1>"]
+    if steps:
+        parts = [f'{s["at"]:%H:%M} <b>{s["game"]["channels"][0]["number"]}</b>' for s in steps]
+        body.append('<p class="plan">Αυτόματες αλλαγές: ' + " · ".join(parts) + "</p>")
+    if not games:
         body.append('<p class="empty">Σήμερα δεν υπάρχει αγώνας από τη λίστα στα κανάλια Magenta.</p>')
     else:
         body.append('<table class="games" cellspacing="0" cellpadding="0">')
@@ -231,24 +231,26 @@ def render(games, steps, day, updated, ok):
                 f'<td class="what"><span class="match">{esc(g["match"])}</span> '
                 f'<span class="meta">{esc(meta)}</span> {note}</td></tr>')
         body.append("</table>")
-    plan_line = ""
-    if steps:
-        parts = [f'{s["at"]:%H:%M} <b>{s["game"]["channels"][0]["number"]}</b>' for s in steps]
-        plan_line = '<p class="plan">Αυτόματες αλλαγές: ' + " · ".join(parts) + "</p>"
+        body.append('<p class="done">Οι σημερινοί αγώνες τελείωσαν.</p>')
+    body.append("</div>")
+    return "\n".join(body)
+
+
+def render(days_html, updated, ok):
+    if not ok:
+        days_html = ['<p class="empty">Το πρόγραμμα δεν είναι διαθέσιμο αυτή τη στιγμή. '
+                     'Η σελίδα θα ενημερωθεί μόνη της.</p>']
     tpl = (ROOT / "template.html").read_text(encoding="utf-8")
-    return (tpl.replace("{{DATE}}", esc(date_label))
-               .replace("{{BODY}}", "\n".join(body))
-               .replace("{{PLAN}}", plan_line)
+    return (tpl.replace("{{DAYS}}", "\n".join(days_html))
                .replace("{{FOOTER}}", f"Ενημέρωση {updated} · Πηγή: gazzetta.gr"))
 
 
-def as_json(games, steps, day, now, ok):
+def day_json(games, steps):
     def g2j(g):
         return {"start": g["start"].strftime("%H:%M"), "end": g["end"].strftime("%H:%M"),
                 "priority": g["priority"], "category": g["category"], "match": g["match"],
                 "competition": g["competition"], "sport": g["sport"], "channels": g["channels"]}
-    return {"date": day.isoformat(), "updated": now.isoformat(timespec="minutes"), "found": ok,
-            "games": [g2j(g) for g in games],
+    return {"games": [g2j(g) for g in games],
             "plan": [{"at": s["at"].strftime("%H:%M"), "number": s["game"]["channels"][0]["number"],
                       "match": s["game"]["match"]} for s in steps]}
 
@@ -269,14 +271,24 @@ def main():
     except Exception as e:
         print(f"feed: {e.__class__.__name__}: {e}")
         feed, ok = {}, False
-    games = events_for(feed, day) if ok else []
-    steps = plan(games)
+    days, days_html = {}, []
+    for i in range(CONFIG.get("days_ahead", 7)):
+        d = day + dt.timedelta(days=i)
+        g = events_for(feed, d) if ok else []
+        st = plan(g)
+        days[d.isoformat()] = day_json(g, st)
+        days_html.append(render_day(g, st, d))
+        if i == 0:
+            games, steps = g, st
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     stamp = args.now or now.strftime("%H:%M")
-    (out / "index.html").write_text(render(games, steps, day, stamp, ok), encoding="utf-8")
-    (out / "today.json").write_text(json.dumps(as_json(games, steps, day, now, ok),
-                                               ensure_ascii=False, indent=1), encoding="utf-8")
+    (out / "index.html").write_text(render(days_html, stamp, ok), encoding="utf-8")
+    first = days[day.isoformat()]
+    (out / "today.json").write_text(json.dumps({
+        "date": day.isoformat(), "updated": now.isoformat(timespec="minutes"), "found": ok,
+        "games": first["games"], "plan": first["plan"], "days": days},
+        ensure_ascii=False, indent=1), encoding="utf-8")
     for g in games:
         mark = "*" if any(s["game"] is g for s in steps) else " "
         print(f'{mark} {g["start"]:%H:%M} {g["priority"]:>2} {",".join(str(c["number"]) for c in g["channels"])} '
