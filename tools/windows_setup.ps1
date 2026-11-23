@@ -35,7 +35,17 @@ Invoke-WebRequest -Uri 'https://github.com/nlavidas/agones-tablet/archive/refs/h
 Expand-Archive -Path $zip -DestinationPath $base -Force
 if ($keep) { Set-Content -Path $codes -Value $keep -Encoding UTF8 -NoNewline }
 Set-Location $dir
-RunPy -m pip install --quiet --disable-pip-version-check --upgrade broadlink
+RunPy -m pip install --quiet --disable-pip-version-check --upgrade broadlink qrcode pypng
+$secretFile = Join-Path $base 'secret.txt'
+if (-not (Test-Path $secretFile)) {
+    $abc = 'abcdefghijkmnpqrstuvwxyz23456789'
+    $bytes = New-Object byte[] 24
+    [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+    $secret = 'agones-' + (-join ($bytes | ForEach-Object { $abc[$_ % $abc.Length] }))
+    Set-Content -Path $secretFile -Value $secret -Encoding ASCII -NoNewline
+}
+$secret = (Get-Content $secretFile -Raw).Trim()
+$controlUrl = "https://nlavidas.github.io/agones-tablet/control.html#$secret"
 $pyexe = (RunPy -c "import sys;print(sys.executable)").Trim()
 $pyw = Join-Path (Split-Path $pyexe) 'pythonw.exe'
 Get-NetFirewallRule -DisplayName 'Tilekontrol*' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
@@ -55,7 +65,7 @@ if ($LASTEXITCODE -ne 0) { Write-Host 'Δεν μάθαμε όλα τα πλήκ�
 Step '4/6  Δοκιμή'
 while ($true) {
     RunPy remote.py test 301
-    $a = Read-Host 'Ο αποκωδικοποιητής πήγε στο 301; Γράψε Ν για ναι ή Ο για όχι, και πάτα Enter'
+    do { $a = (Read-Host 'Ο αποκωδικοποιητής πήγε στο 301; Γράψε Ν για ναι ή Ο για όχι, και πάτα Enter').Trim() } until ($a -match '^[NnΝνOoΟο]')
     if ($a -match '^[NnΝν]') { break }
     Write-Host 'Ξαναμαθαίνουμε όλα τα πλήκτρα από την αρχή.' -ForegroundColor Yellow
     RunPy remote.py learn all
@@ -64,6 +74,12 @@ while ($true) {
 Step '5/6  Κρυφή αυτόματη εκκίνηση'
 powercfg /change standby-timeout-ac 0
 powercfg /change hibernate-timeout-ac 0
+foreach ($p in @(
+        @('/setacvalueindex', 'SCHEME_CURRENT', 'SUB_BUTTONS', 'LIDACTION', '0'),
+        @('/setacvalueindex', 'SCHEME_CURRENT', '19cbb8fa-5279-450e-9fac-8a3d5fedd0c1', '12bbebe6-58d6-4636-95bb-3217ef867c1a', '0'),
+        @('/setactive', 'SCHEME_CURRENT'))) {
+    try { $null = & powercfg.exe @p 2>&1 } catch { }
+}
 Get-CimInstance Win32_Process -Filter "Name='pythonw.exe'" | Where-Object { $_.CommandLine -like '*remote.py*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
 $act = New-ScheduledTaskAction -Execute $pyw -Argument 'remote.py serve' -WorkingDirectory $dir
 $trg = New-ScheduledTaskTrigger -AtStartup
@@ -85,7 +101,17 @@ Write-Host ''
 Write-Host "  Τηλεκοντρόλ (Asus):       http://$($ip):8080/" -ForegroundColor Green
 Write-Host "  Πίνακας αγώνων (Acer):    nlavidas.github.io/agones-tablet" -ForegroundColor Green
 Write-Host "  ή, αν δεν ανοίγει:        http://$($ip):8080/agones" -ForegroundColor Green
+Write-Host ''
+Write-Host '  Επιλογές ΝΑΙ/ΟΧΙ από το κινητό σου: σκάναρε αυτόν τον κωδικό με την κάμερα του κινητού' -ForegroundColor Green
+RunPy -c "import qrcode,sys;q=qrcode.QRCode(border=2);q.add_data(sys.argv[1]);q.print_ascii(invert=True)" $controlUrl
+Write-Host "  ή άνοιξε στο κινητό: $controlUrl" -ForegroundColor Green
+$qrPng = Join-Path $base 'KINHTO-QR.png'
+try {
+    RunPy -c "import qrcode,sys;from qrcode.image.pure import PyPNGImage;qrcode.make(sys.argv[1],image_factory=PyPNGImage,box_size=12,border=4).save(sys.argv[2])" $controlUrl $qrPng
+    if (Test-Path $qrPng) { Start-Process $qrPng }
+} catch { }
 Set-Content -Path (Join-Path $base 'DIEYTHYNSEIS.txt') -Encoding UTF8 -Value @(
+    "Επιλογές ΝΑΙ/ΟΧΙ από το κινητό: $controlUrl",
     "Τηλεκοντρόλ (Asus): http://$($ip):8080/",
     "Πίνακας αγώνων (Acer): nlavidas.github.io/agones-tablet",
     "Πίνακας αγώνων, αν δεν ανοίγει: http://$($ip):8080/agones"
