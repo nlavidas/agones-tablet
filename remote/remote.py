@@ -124,6 +124,23 @@ class Remote:
         return True
 
 
+class Board:
+    """The GitHub match board, fetched here so that old tablets can read it over plain http."""
+    def __init__(self):
+        self.html, self.fetched = None, 0.0
+
+    def get(self):
+        url = CFG["today_url"].rsplit("/", 1)[0] + "/"
+        if url.startswith("http") and (self.html is None or time.time() - self.fetched > 600):
+            try:
+                with urllib.request.urlopen(url, timeout=20) as r:
+                    self.html = r.read()
+                self.fetched = time.time()
+            except Exception as e:
+                print("board:", e.__class__.__name__)
+        return self.html
+
+
 class Today:
     def __init__(self):
         self.data, self.fetched = None, 0.0
@@ -143,10 +160,18 @@ class Today:
         return self.data or {"games": [], "plan": [], "date": ""}
 
 
+def for_today(data):
+    key = dt.date.today().isoformat()
+    day = (data.get("days") or {}).get(key)
+    if day is not None:
+        return {"date": key, "games": day.get("games", []), "plan": day.get("plan", [])}
+    return data
+
+
 def auto_loop(remote, today):
     done = set()
     while True:
-        data = today.get()
+        data = for_today(today.get())
         now = dt.datetime.now()
         if remote.auto and data.get("date") == now.date().isoformat():
             for step in data.get("plan", []):
@@ -164,7 +189,7 @@ def auto_loop(remote, today):
         time.sleep(20)
 
 
-def make_handler(remote, today):
+def make_handler(remote, today, board):
     class H(BaseHTTPRequestHandler):
         def log_message(self, *a):
             pass
@@ -181,9 +206,14 @@ def make_handler(remote, today):
         def do_GET(self):
             if self.path in ("/", "/index.html"):
                 return self._send(200, PAGE, "text/html; charset=utf-8")
+            if self.path.rstrip("/") == "/agones":
+                html = board.get()
+                if html:
+                    return self._send(200, html, "text/html; charset=utf-8")
+                return self._send(503, "Ο πίνακας δεν είναι διαθέσιμος αυτή τη στιγμή.", "text/plain; charset=utf-8")
             if self.path.startswith("/api/state"):
                 return self._send(200, json.dumps({
-                    "today": today.get(), "favourites": CFG["favourites"],
+                    "today": for_today(today.get()), "favourites": CFG["favourites"],
                     "auto": remote.auto, "current": remote.current,
                     "keys": sorted(remote.codes)}, ensure_ascii=False))
             self._send(404, "{}")
@@ -226,7 +256,7 @@ def serve(demo=False):
         remote.codes = {k: k.encode() for k in CFG["keys_to_learn"]}
     today = Today()
     threading.Thread(target=auto_loop, args=(remote, today), daemon=True).start()
-    srv = ThreadingHTTPServer(("0.0.0.0", CFG["port"]), make_handler(remote, today))
+    srv = ThreadingHTTPServer(("0.0.0.0", CFG["port"]), make_handler(remote, today, Board()))
     print(f"\nΣτο tablet άνοιξε:  http://{lan_ip()}:{CFG['port']}/\n")
     srv.serve_forever()
 
