@@ -43,8 +43,8 @@ foreach ($d in $devs) {
     $sdk = & $sh 'getprop ro.build.version.sdk'
     $size = & $sh 'wm size'
     $dens = & $sh 'wm density'
-    $chrome = & $sh 'dumpsys package com.android.chrome | grep versionName'
-    $browser = & $sh 'pm list packages | grep -i -E "browser|chrome|firefox"'
+    $chrome = ((& $adb -s $d shell dumpsys package com.android.chrome) | Select-String 'versionName' | Select-Object -First 1 | Out-String).Trim()
+    $browser = ((& $adb -s $d shell pm list packages) | Select-String -Pattern 'browser|chrome|firefox' | ForEach-Object { $_.ToString().Trim() }) -join ', '
 
     & $adb -s $d shell settings put global stay_on_while_plugged_in 3 | Out-Null
     & $adb -s $d shell settings put system screen_off_timeout 1800000 | Out-Null
@@ -68,7 +68,7 @@ foreach ($d in $devs) {
         "Android: $rel (SDK $sdk)",
         "Οθόνη: $size / $dens",
         "Chrome: $chrome",
-        "Browsers: $($browser -replace "`r?`n", ', ')",
+        "Browsers: $browser",
         "Οθόνη αναμμένη στη φόρτιση: $stay (3 = ναι)",
         "Σβήσιμο οθόνης μετά από: $tout ms",
         "Καθυστέρηση αγγίγματος και κρατήματος: $lp ms",
