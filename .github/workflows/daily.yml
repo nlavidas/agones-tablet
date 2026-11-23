@@ -31,6 +31,7 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements.txt
       - run: python build.py --out site
+      - run: cp tools/Tilekontrol-Setup.cmd tools/odigies.html site/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
