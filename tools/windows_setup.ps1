@@ -75,7 +75,6 @@ Step '5/6  Κρυφή αυτόματη εκκίνηση'
 powercfg /change standby-timeout-ac 0
 powercfg /change hibernate-timeout-ac 0
 foreach ($p in @(
-        @('/setacvalueindex', 'SCHEME_CURRENT', 'SUB_BUTTONS', 'LIDACTION', '0'),
         @('/setacvalueindex', 'SCHEME_CURRENT', '19cbb8fa-5279-450e-9fac-8a3d5fedd0c1', '12bbebe6-58d6-4636-95bb-3217ef867c1a', '0'),
         @('/setactive', 'SCHEME_CURRENT'))) {
     try { $null = & powercfg.exe @p 2>&1 } catch { }
