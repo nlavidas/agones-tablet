@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="author" content="Lavidas">
+<title>Εγκατάσταση: αγώνες και τηλεκοντρόλ</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=GFS+Didot|GFS+Neohellenic:400,700&amp;subset=greek">
+<style>
+body { margin: 0 auto; max-width: 760px; padding: 18px 20px 40px; background: #ffffff; color: #1a1a1a; font-family: "GFS Neohellenic", Georgia, serif; font-size: 21px; line-height: 1.45; }
+h1 { font-family: "GFS Didot", Georgia, serif; font-size: 30px; color: #0E8388; margin: 0 0 6px; padding-bottom: 8px; border-bottom: 2px solid #0E8388; }
+h2 { font-family: "GFS Didot", Georgia, serif; font-size: 24px; color: #0E8388; margin: 30px 0 6px; padding-bottom: 4px; border-bottom: 1px solid #0E8388; }
+p { margin: 8px 0; }
+ol { margin: 6px 0; padding-left: 28px; }
+li { margin: 7px 0; }
+.where { color: #555555; font-size: 18px; }
+a.get { display: inline-block; font-size: 26px; font-weight: 700; color: #0E8388; margin: 6px 0; }
+code { font-family: Menlo, Consolas, monospace; font-size: 16px; word-break: break-all; }
+b { font-weight: 700; }
+</style>
+</head>
+<body>
+
+<h1>Εγκατάσταση: αγώνες και τηλεκοντρόλ</h1>
+<p><b>Υπολογιστής βιντεοκλήσεων</b>: κρυφό πρόγραμμα που αλλάζει κανάλια μέσω BroadLink. <b>Asus</b>: τηλεκοντρόλ με μεγάλα πλακίδια, στο χέρι. <b>Acer</b>: πίνακας με τους αγώνες της ημέρας.</p>
+
+<h2>1. Υπολογιστής βιντεοκλήσεων</h2>
+<p class="where">Μία φορά. Χρειάζεται κάποιος μπροστά στην τηλεόραση με το τηλεκοντρόλ του αποκωδικοποιητή.</p>
+<ol>
+<li>Άνοιξε αυτή τη σελίδα στον υπολογιστή βιντεοκλήσεων και πάτα:<br>
+<a class="get" href="Tilekontrol-Setup.cmd" download>Κατέβασμα εγκατάστασης</a></li>
+<li>Αν ο browser ρωτήσει αν θέλεις να κρατήσεις το αρχείο, πάτα <b>Διατήρηση</b>.</li>
+<li>Άνοιξε το αρχείο <b>Tilekontrol-Setup</b> που κατέβηκε. Αν τα Windows γράψουν ότι «προστάτευσαν τον υπολογιστή», πάτα <b>Περισσότερες πληροφορίες</b> και μετά <b>Εκτέλεση</b>. Στην ερώτηση για αλλαγές στον υπολογιστή, πάτα <b>Ναι</b>.</li>
+<li>Όταν ζητήσει πλήκτρο: πάτα <b>Enter</b>, στόχευσε το BroadLink με το τηλεκοντρόλ του αποκωδικοποιητή και πάτα <b>μία φορά</b> το πλήκτρο που γράφει.</li>
+<li>Ο αποκωδικοποιητής πάει μόνος του στο <b>301</b>. Αν πήγε, γράψε <b>Ν</b> και Enter.</li>
+<li>Στο τέλος γράφει με πράσινα δύο διευθύνσεις. Είναι αποθηκευμένες και στο αρχείο <b>C:\Tilekontrol\DIEYTHYNSEIS.txt</b>.</li>
+</ol>
+<p>Από εκεί και πέρα ο υπολογιστής δεν δείχνει τίποτα. Το πρόγραμμα ξεκινά μόνο του κάθε φορά που ανοίγει, ακόμα και χωρίς σύνδεση χρήστη.</p>
+
+<h2>2. Asus: τηλεκοντρόλ</h2>
+<ol>
+<li><b>Ρυθμίσεις → Ασφάλεια → Κλείδωμα οθόνης → Κανένα</b>, για να μη χρειάζεται σύρσιμο.</li>
+<li><b>Ρυθμίσεις → Προσβασιμότητα</b>: την καθυστέρηση για το άγγιγμα με κράτημα στο <b>Μεγάλη</b>.</li>
+<li><b>Ρυθμίσεις → Οθόνη → Αναστολή λειτουργίας</b>: η μεγαλύτερη τιμή.</li>
+<li>Άνοιξε τον browser στη διεύθυνση του τηλεκοντρόλ από το βήμα 1.6, π.χ. <b>http://192.168.1.20:8080/</b>.</li>
+<li>Μενού του browser → <b>Προσθήκη στην αρχική οθόνη</b>. Από εκεί και πέρα ανοίγει με ένα άγγιγμα.</li>
+</ol>
+<p>Ένα άγγιγμα σε αγώνα ή σε κανάλι αλλάζει το κανάλι. Δεν χρειάζεται διπλό πάτημα, κράτημα ή σύρσιμο. Κάτω υπάρχουν τα Φωνή −, Σίγαση, Φωνή +.</p>
+
+<h2>3. Acer: πίνακας αγώνων</h2>
+<ol>
+<li>Οι ρυθμίσεις 1 έως 3 του Asus, και στο Acer.</li>
+<li>Άνοιξε τον browser στη διεύθυνση <b>nlavidas.github.io/agones-tablet</b>, και πρόσθεσέ την στην αρχική οθόνη.</li>
+<li>Άφησέ το στη φόρτιση. Η σελίδα ανανεώνεται μόνη της.</li>
+</ol>
+
+<h2>Αν κάτι δεν πάει καλά</h2>
+<ol>
+<li><b>«Δεν βρέθηκε BroadLink»</b>: στην εφαρμογή BroadLink στο κινητό, άνοιξε τη συσκευή, μπες στις ρυθμίσεις της και απενεργοποίησε το <b>κλείδωμα της συσκευής</b>. Ξανάνοιξε το Tilekontrol-Setup.</li>
+<li><b>Το τηλεκοντρόλ σταμάτησε να ανοίγει</b>: ξανάνοιξε το Tilekontrol-Setup. Δεν ξαναζητά πλήκτρα. Άνοιξε στο Asus τη διεύθυνση που θα γράψει.</li>
+<li><b>Ο πίνακας δεν ανοίγει στο Acer</b>: άνοιξε τη δεύτερη διεύθυνση του βήματος 1.6, π.χ. <b>http://192.168.1.20:8080/agones</b>.</li>
+</ol>
+
+</body>
+</html>
