@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="author" content="Lavidas">
+<meta name="robots" content="noindex, nofollow">
+<title>Αυτόματες αλλαγές καναλιού</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=GFS+Didot|GFS+Neohellenic:400,700&amp;subset=greek">
+<style>
+body { margin: 0 auto; max-width: 720px; padding: 12px 14px 40px; background: #ffffff; color: #1a1a1a; font-family: "GFS Neohellenic", Georgia, serif; font-size: 19px; }
+h1 { font-family: "GFS Didot", Georgia, serif; font-size: 25px; color: #0E8388; margin: 0; padding-bottom: 6px; border-bottom: 2px solid #0E8388; }
+#days { margin: 8px 0 4px; white-space: nowrap; overflow-x: auto; }
+#days button { font-family: inherit; font-size: 20px; background: none; border: none; color: #555555; min-height: 56px; padding: 12px 14px 12px 0; margin-right: 8px; cursor: pointer; }
+#days button.on { color: #0E8388; font-weight: 700; text-decoration: underline; }
+p.plan { font-size: 18px; margin: 6px 0 2px; }
+p.plan b { color: #0E8388; }
+table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+td { border-bottom: 1px solid #0E8388; padding: 8px 4px; vertical-align: middle; }
+td.t { font-weight: 700; white-space: nowrap; width: 1%; }
+td.n { font-weight: 700; color: #0E8388; font-size: 22px; white-space: nowrap; width: 1%; padding: 8px 10px; }
+.m { font-weight: 700; }
+.c { font-size: 15px; color: #666666; }
+td.s { width: 1%; white-space: nowrap; text-align: right; }
+.sw { font-family: inherit; font-size: 22px; font-weight: 700; background: none; border: none; padding: 14px 8px; cursor: pointer; min-width: 84px; min-height: 60px; }
+.sw.yes { color: #0E8388; text-decoration: underline; }
+.sw.no { color: #999999; }
+.changed { font-size: 13px; color: #0E8388; display: block; }
+#status { font-size: 15px; color: #666666; margin-top: 12px; }
+#reset { font-family: inherit; font-size: 19px; background: none; border: none; color: #0E8388; text-decoration: underline; min-height: 56px; padding: 14px 0; cursor: pointer; }
+.err { color: #A80030; font-weight: 700; }
+</style>
+</head>
+<body>
+<h1>Αυτόματες αλλαγές καναλιού</h1>
+<div id="days"></div>
+<p class="plan" id="plan"></p>
+<table id="list"></table>
+<button id="reset">Επαναφορά στην προεπιλογή για αυτή τη μέρα</button>
+<p id="status"></p>
+<script>
+(function () {
+  var NTFY = "https://ntfy.sh";
+  var q = location.search.match(/ntfy=([^&]+)/); if (q) { NTFY = decodeURIComponent(q[1]); }
+  var DAYS = ["Κυριακή", "Δευτέρα", "Τρίτη", "Τετάρτη", "Πέμπτη", "Παρασκευή", "Σάββατο"];
+  var topic = (location.hash || "").replace(/^#/, "");
+  try {
+    if (topic) { localStorage.setItem("agones-topic", topic); history.replaceState(null, "", location.pathname + location.search); }
+    else { topic = localStorage.getItem("agones-topic") || ""; }
+  } catch (e) {}
+  var data = null, ovr = {}, confirmed = null, asus = null, sel = null, pending = [];
+  try { var saved = JSON.parse(localStorage.getItem("agones-state") || "null"); if (saved) { ovr = saved.o || {}; confirmed = saved.u || null; asus = saved.asus || null; } } catch (e) {}
+  try { pending = JSON.parse(localStorage.getItem("agones-pending") || "[]"); } catch (e) { pending = []; }
+  function keepPending() { try { localStorage.setItem("agones-pending", JSON.stringify(pending)); } catch (e) {} }
+
+  function applyCmd(cmd) {
+    if (cmd.reset) { delete ovr[cmd.date]; } else { (ovr[cmd.date] = ovr[cmd.date] || {})[cmd.key] = cmd.on; }
+  }
+  for (var pi = 0; pi < pending.length; pi++) { applyCmd(pending[pi].cmd); }
+
+  function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+  function hm(t) { var p = t.split(":"); return parseInt(p[0], 10) * 60 + parseInt(p[1], 10); }
+  function fmt(m) { var h = Math.floor(m / 60), n = m % 60; return (h < 10 ? "0" : "") + h + ":" + (n < 10 ? "0" : "") + n; }
+  function key(g) { return g.start + "|" + g.match; }
+
+  function isOn(date, g, planned) {
+    var o = ovr[date] || {};
+    return Object.prototype.hasOwnProperty.call(o, key(g)) ? o[key(g)] : !!planned[g.match];
+  }
+  function steps(date) {
+    var day = data.days[date], planned = {}, chosen = [], out = [], prev = null, i;
+    for (i = 0; i < day.plan.length; i++) { planned[day.plan[i].match] = 1; }
+    for (i = 0; i < day.games.length; i++) {
+      var g = day.games[i], num = null;
+      for (var k = 0; k < g.channels.length; k++) { if (g.channels[k].number) { num = g.channels[k].number; break; } }
+      if (num && isOn(date, g, planned)) {
+        var s = hm(g.start), e = hm(g.end); if (e < s) { e += 1440; }
+        chosen.push({ s: s, e: e, n: num, m: g.match, p: g.priority || 99 });
+      }
+    }
+    chosen.sort(function (a, b) { return a.s - b.s || a.p - b.p || a.e - b.e; });
+    for (i = 0; i < chosen.length; i++) {
+      var at = prev === null ? chosen[i].s : Math.max(chosen[i].s, prev);
+      if (at >= chosen[i].e || at >= 1440) { continue; }
+      out.push({ at: at, n: chosen[i].n, m: chosen[i].m }); prev = chosen[i].e;
+    }
+    return out;
+  }
+
+  function render() {
+    if (!data) { return; }
+    var dates = Object.keys(data.days).sort(), today = new Date(), h = "", i;
+    var tkey = today.getFullYear() + "-" + ("0" + (today.getMonth() + 1)).slice(-2) + "-" + ("0" + today.getDate()).slice(-2);
+    dates = dates.filter(function (d) { return d >= tkey; });
+    if (!sel || dates.indexOf(sel) < 0) { sel = dates[0]; }
+    for (i = 0; i < dates.length; i++) {
+      var d = new Date(dates[i] + "T12:00:00");
+      var label = i === 0 && dates[i] === tkey ? "Σήμερα" : DAYS[d.getDay()] + " " + d.getDate();
+      h += '<button data-d="' + dates[i] + '" class="' + (dates[i] === sel ? "on" : "") + '">' + label + "</button>";
+    }
+    document.getElementById("days").innerHTML = h;
+    var day = data.days[sel], planned = {};
+    for (i = 0; i < day.plan.length; i++) { planned[day.plan[i].match] = 1; }
+    var st = steps(sel), inPlan = {};
+    for (i = 0; i < st.length; i++) { inPlan[st[i].m] = 1; }
+    document.getElementById("plan").innerHTML = st.length
+      ? "Αλλαγές: " + st.map(function (x) { return fmt(x.at) + " <b>" + x.n + "</b>"; }).join(" · ")
+      : "Καμία αυτόματη αλλαγή αυτή τη μέρα.";
+    h = "";
+    for (i = 0; i < day.games.length; i++) {
+      var g = day.games[i], on = isOn(sel, g, planned), def = !!planned[g.match];
+      var num = g.channels[0] && g.channels[0].number ? g.channels[0].number : "";
+      h += "<tr><td class='t'>" + g.start + "</td><td class='n'>" + num + "</td><td><span class='m'>" + esc(g.match) +
+        "</span><br><span class='c'>" + esc(g.competition) + "</span>" +
+        (on !== def ? "<span class='changed'>δική σου επιλογή</span>" : "") +
+        (on && num && !inPlan[g.match] ? "<span class='changed'>δεν χωράει: παίζει άλλος αγώνας</span>" : "") +
+        "</td><td class='s'>" +
+        (num ? "<button class='sw " + (on ? "yes" : "no") + "' data-k='" + esc(key(g)) + "' data-on='" + (on ? 1 : 0) + "'>" + (on ? "ΝΑΙ" : "ΟΧΙ") + "</button>" : "") +
+        "</td></tr>";
+    }
+    document.getElementById("list").innerHTML = h || "<tr><td>Δεν υπάρχουν αγώνες αυτή τη μέρα.</td></tr>";
+    status();
+  }
+
+  function status(msg) {
+    var el = document.getElementById("status");
+    if (!topic) { el.innerHTML = "<span class='err'>Άνοιξε αυτή τη σελίδα από τον σύνδεσμο που έδωσε η εγκατάσταση στον υπολογιστή.</span>"; return; }
+    el.innerHTML = (msg || (pending.length ? "Περιμένω επιβεβαίωση από τον υπολογιστή." : confirmed ? "Ο υπολογιστής επιβεβαίωσε τις επιλογές: " + esc(confirmed.replace("T", " ")) : "Περιμένω επιβεβαίωση από τον υπολογιστή.")) +
+      (asus ? "<br>Διεύθυνση τηλεκοντρόλ στο Asus: " + esc(asus) : "");
+  }
+
+  function send(cmd) {
+    pending.push({ t: Date.now() / 1000, cmd: cmd }); keepPending();
+    var r = new XMLHttpRequest();
+    r.open("POST", NTFY + "/" + topic, true);
+    r.onreadystatechange = function () {
+      if (r.readyState === 4) { status(r.status === 200 ? "Στάλθηκε. Ο υπολογιστής το παίρνει σε λιγότερο από ένα λεπτό." : "<span class='err'>Δεν στάλθηκε. Δοκίμασε ξανά.</span>"); }
+    };
+    r.send(JSON.stringify(cmd));
+  }
+
+  function loadState() {
+    if (!topic) { return; }
+    var r = new XMLHttpRequest();
+    r.open("GET", NTFY + "/" + topic + "-state/json?poll=1&since=12h", true);
+    r.onreadystatechange = function () {
+      if (r.readyState !== 4 || r.status !== 200) { return; }
+      var lines = r.responseText.split("\n"), last = null;
+      for (var i = 0; i < lines.length; i++) { try { var ev = JSON.parse(lines[i]); if (ev.event === "message") { last = ev; } } catch (e) {} }
+      if (last) {
+        try {
+          var m = JSON.parse(last.message);
+          ovr = m.o || {}; confirmed = m.u; asus = m.asus || asus;
+          try { localStorage.setItem("agones-state", JSON.stringify(m)); } catch (e) {}
+          pending = pending.filter(function (p) { return p.t > last.time && Date.now() / 1000 - p.t < 180; });
+          keepPending();
+          for (var j = 0; j < pending.length; j++) { applyCmd(pending[j].cmd); }
+        } catch (e) {}
+      }
+      render();
+    };
+    r.send(null);
+  }
+
+  document.addEventListener("click", function (e) {
+    var t = e.target;
+    if (t.getAttribute("data-d")) { sel = t.getAttribute("data-d"); render(); return; }
+    if (t.getAttribute("data-k")) {
+      var cmd = { date: sel, key: t.getAttribute("data-k"), on: t.getAttribute("data-on") !== "1" };
+      applyCmd(cmd);
+      send(cmd);
+      render();
+      return;
+    }
+    if (t.id === "reset" && confirm("Να γυρίσει αυτή η μέρα στο αρχικό πρόγραμμα;")) { var c = { date: sel, reset: true }; applyCmd(c); send(c); render(); }
+  });
+
+  var r = new XMLHttpRequest();
+  r.open("GET", "today.json?" + Date.now(), true);
+  r.onreadystatechange = function () {
+    if (r.readyState === 4 && r.status === 200) { data = JSON.parse(r.responseText); render(); loadState(); }
+  };
+  r.send(null);
+  setInterval(loadState, 60000);
+})();
+</script>
+</body>
+</html>
