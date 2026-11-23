@@ -1,7 +1,9 @@
 """Big-tile TV remote for the tablet: one tap changes the MagentaTV channel through the BroadLink,
 and the day's automatic switch plan runs in the background.
 
-  python remote.py learn    record the decoder remote's keys once
+  python remote.py learn    record the decoder remote's keys still missing
+  python remote.py learn all record every key again
+  python remote.py check    exit 0 only when every key is recorded
   python remote.py serve    start the remote for the tablet
   python remote.py test 318 send one channel number
 """
@@ -37,35 +39,49 @@ class FakeDevice:
         print("demo send", packet[:6])
 
 
-def find_device(keep_trying=False):
+def find_device(keep_trying=False, quit_on_fail=True):
     import broadlink
     while True:
         try:
             if CFG.get("broadlink_host"):
                 dev = broadlink.hello(CFG["broadlink_host"])
             else:
-                found = [d for d in broadlink.discover(timeout=6) if hasattr(d, "send_data")]
+                found = [d for d in broadlink.discover(timeout=6, local_ip_address=lan_ip())
+                         if hasattr(d, "send_data")]
                 if not found:
                     raise LookupError("no device")
                 dev = found[0]
             dev.auth()
             break
         except Exception as e:
-            msg = ("Δεν βρέθηκε BroadLink στο δίκτυο. Το tablet, ο υπολογιστής και το BroadLink "
-                   f"πρέπει να είναι στο ίδιο Wi-Fi. ({e.__class__.__name__})")
+            msg = ("Δεν βρέθηκε BroadLink στο δίκτυο. Ο υπολογιστής και το BroadLink πρέπει να είναι "
+                   "στο ίδιο Wi-Fi, και στην εφαρμογή BroadLink το κλείδωμα της συσκευής πρέπει να είναι "
+                   f"απενεργοποιημένο. ({e.__class__.__name__})")
             if not keep_trying:
-                sys.exit(msg)
+                if quit_on_fail:
+                    sys.exit(msg)
+                raise RuntimeError(msg)
             print(f"{dt.datetime.now():%H:%M:%S} {msg}")
             time.sleep(30)
     print(f"BroadLink: {dev.host[0]} ({dev.model or dev.type})")
     return dev
 
 
-def learn():
+def load_codes():
+    return json.loads(CODES_FILE.read_text(encoding="utf-8")) if CODES_FILE.exists() else {}
+
+
+def missing_keys():
+    codes = load_codes()
+    return [k for k in CFG["keys_to_learn"] if k not in codes]
+
+
+def learn(relearn=False):
     import broadlink.exceptions as bx
     dev = find_device()
-    codes = json.loads(CODES_FILE.read_text(encoding="utf-8")) if CODES_FILE.exists() else {}
-    for key in CFG["keys_to_learn"]:
+    codes = {} if relearn else load_codes()
+    todo = [k for k in CFG["keys_to_learn"] if k not in codes]
+    for key in todo:
         label = LABELS.get(key, key)
         input(f"\nΠλήκτρο «{label}»: πάτα Enter, μετά σημάδεψε το τηλεκοντρόλ του αποκωδικοποιητή "
               f"στο BroadLink και πάτα μία φορά το «{label}».")
@@ -79,12 +95,14 @@ def learn():
             except (bx.ReadError, bx.StorageError):
                 continue
         if packet is None:
-            print(f"Δεν πιάστηκε το «{label}». Ξανατρέξε το learn για να το συμπληρώσεις.")
+            print(f"Δεν πιάστηκε το «{label}». Θα ξαναζητηθεί στο τέλος.")
             continue
         codes[key] = base64.b64encode(packet).decode()
         CODES_FILE.write_text(json.dumps(codes, indent=1), encoding="utf-8")
         print(f"Αποθηκεύτηκε το «{label}».")
-    print("\nΤέλος. Δοκίμασε: python remote.py test 103")
+    left = missing_keys()
+    if left:
+        print("\nΛείπουν ακόμα: " + ", ".join(LABELS.get(k, k) for k in left))
 
 
 class Remote:
@@ -100,7 +118,14 @@ class Remote:
     def _key(self, key):
         if key not in self.codes:
             raise KeyError(key)
-        self.dev.send_data(self.codes[key])
+        try:
+            self.dev.send_data(self.codes[key])
+        except Exception as e:
+            if isinstance(self.dev, FakeDevice):
+                raise
+            print(f"{dt.datetime.now():%H:%M:%S} επανασύνδεση με το BroadLink ({e.__class__.__name__})")
+            self.dev = find_device(keep_trying=False, quit_on_fail=False)
+            self.dev.send_data(self.codes[key])
 
     def channel(self, number, source="tap"):
         digits = str(int(number))
@@ -264,7 +289,11 @@ def serve(demo=False):
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "serve"
     if cmd == "learn":
-        learn()
+        learn(relearn=len(sys.argv) > 2 and sys.argv[2] == "all")
+    elif cmd == "check":
+        left = missing_keys()
+        print("ok" if not left else "λείπουν: " + ", ".join(left))
+        sys.exit(1 if left else 0)
     elif cmd == "test" and len(sys.argv) > 2:
         Remote(find_device()).channel(int(sys.argv[2]), source="δοκιμή")
     elif cmd == "demo":

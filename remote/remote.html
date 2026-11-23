@@ -172,7 +172,13 @@ body { font-family: "GFS Neohellenic", Georgia, "Times New Roman", serif; -webki
   }, false);
   document.addEventListener("contextmenu", function (e) { e.preventDefault(); }, false);
 
-  function load() { xhr("GET", "/api/state", function (r) { if (r) { state = r; } render(); }); }
+  var first = true;
+  function load() {
+    xhr("GET", "/api/state", function (r) {
+      if (r) { state = r; if (first) { first = false; if (!games().length) { tab = "ch"; } } }
+      render();
+    });
+  }
   load();
   setInterval(load, 60000);
   setTimeout(function () { location.reload(); }, 6 * 3600 * 1000);
